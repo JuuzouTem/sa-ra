@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>...</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      user-select: none;
+    }
+
+    body {
+      background-color: #060408;
+      color: #e0d8e4;
+      font-family: 'Courier New', Courier, monospace;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* DDLC Tarzı CRT ve Karanlık Atmosfer Katmanları */
+    .scanlines {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background: linear-gradient(
+        rgba(18, 16, 16, 0) 50%, 
+        rgba(0, 0, 0, 0.35) 50%
+      ), linear-gradient(
+        90deg,
+        rgba(255, 0, 60, 0.03),
+        rgba(0, 255, 120, 0.01),
+        rgba(0, 100, 255, 0.03)
+      );
+      background-size: 100% 4px, 6px 100%;
+      z-index: 20;
+    }
+
+    .vignette {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background: radial-gradient(circle at center, transparent 30%, rgba(2, 1, 4, 0.95) 100%);
+      z-index: 15;
+    }
+
+    /* Arka Plan Hafif Nabız / Parazit */
+    .bg-flicker {
+      position: fixed;
+      inset: 0;
+      background: rgba(180, 20, 50, 0.015);
+      animation: pulseBg 4s infinite alternate;
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    @keyframes pulseBg {
+      0% { opacity: 0.2; }
+      50% { opacity: 0.6; }
+      100% { opacity: 0.3; }
+    }
+
+    /* Başlangıç Ekranı ve Buton */
+    #start-screen {
+      position: relative;
+      z-index: 25;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      transition: opacity 1.2s ease, transform 1.2s ease;
+    }
+
+    .mystery-btn {
+      background: transparent;
+      border: 1px solid rgba(220, 180, 200, 0.25);
+      color: #cfb9cc;
+      font-size: 2.2rem;
+      letter-spacing: 8px;
+      padding: 16px 42px;
+      border-radius: 4px;
+      cursor: pointer;
+      outline: none;
+      position: relative;
+      transition: all 0.5s ease;
+      text-shadow: 0 0 8px rgba(255, 160, 190, 0.3);
+    }
+
+    .mystery-btn:hover {
+      border-color: #ff5e85;
+      color: #ffb7c7;
+      box-shadow: 0 0 25px rgba(255, 94, 133, 0.35);
+      letter-spacing: 14px;
+      transform: scale(1.05);
+    }
+
+    /* Geri Sayım Ekranı */
+    #countdown-screen {
+      display: none;
+      opacity: 0;
+      position: relative;
+      z-index: 25;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 1.5s ease;
+    }
+
+    .timer-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: clamp(10px, 3vw, 28px);
+      text-align: center;
+    }
+
+    .time-unit {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-width: clamp(65px, 16vw, 150px);
+    }
+
+    .number {
+      font-size: clamp(2.4rem, 8vw, 6rem);
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      color: #f7e6ea;
+      text-shadow: 
+        0 0 10px rgba(255, 90, 120, 0.6),
+        0 0 25px rgba(255, 50, 90, 0.25);
+      letter-spacing: 2px;
+      transition: text-shadow 0.2s ease;
+    }
+
+    .label {
+      font-size: clamp(0.65rem, 1.8vw, 0.95rem);
+      letter-spacing: 4px;
+      color: #8c7689;
+      margin-top: 8px;
+      text-transform: uppercase;
+    }
+
+    .divider {
+      font-size: clamp(2rem, 7vw, 4.8rem);
+      color: #ff4770;
+      text-shadow: 0 0 12px rgba(255, 71, 112, 0.5);
+      margin-bottom: 25px;
+      animation: blink 1.2s infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 0.9; }
+      50% { opacity: 0.3; }
+    }
+
+    /* Glitch Efekti */
+    .glitch-flash {
+      animation: glitchAnim 0.3s ease-out;
+    }
+
+    @keyframes glitchAnim {
+      0% { transform: translate(0); filter: hue-rotate(0deg); }
+      20% { transform: translate(-3px, 2px); filter: hue-rotate(90deg) contrast(150%); }
+      40% { transform: translate(3px, -2px); filter: hue-rotate(180deg); }
+      60% { transform: translate(-2px, -2px); filter: hue-rotate(270deg); }
+      80% { transform: translate(2px, 2px); filter: hue-rotate(360deg); }
+      100% { transform: translate(0); filter: hue-rotate(0deg); }
+    }
+
+    /* Gizli Müzik Elemanları */
+    .audio-host {
+      position: absolute;
+      top: -9999px;
+      left: -9999px;
+      width: 1px;
+      height: 1px;
+      opacity: 0.01;
+      pointer-events: none;
+      border: none;
+    }
+
+    /* Köşe Ses Durumu (Opsiyonel Kontrol) */
+    #sound-control {
+      position: fixed;
+      bottom: 18px;
+      right: 22px;
+      color: rgba(255, 255, 255, 0.2);
+      font-size: 0.8rem;
+      letter-spacing: 2px;
+      cursor: pointer;
+      z-index: 30;
+      transition: color 0.3s;
+      display: none;
+    }
+    #sound-control:hover {
+      color: #ff5e85;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Atmosfer Katmanları -->
+  <div class="scanlines"></div>
+  <div class="vignette"></div>
+  <div class="bg-flicker"></div>
+
+  <!-- 1. Ekran: Sadece "..." butonu -->
+  <div id="start-screen">
+    <button id="trigger-btn" class="mystery-btn" title="...">...</button>
+  </div>
+
+  <!-- 2. Ekran: Sadece Countdown Ekranı -->
+  <div id="countdown-screen">
+    <div class="timer-container">
+      <!-- SAAT -->
+      <div class="time-unit">
+        <span class="number" id="hours">00</span>
+        <span class="label">Saat</span>
+      </div>
+
+      <span class="divider">:</span>
+
+      <!-- DAKİKA -->
+      <div class="time-unit">
+        <span class="number" id="minutes">00</span>
+        <span class="label">Dakika</span>
+      </div>
+
+      <span class="divider">:</span>
+
+      <!-- SANİYE -->
+      <div class="time-unit">
+        <span class="number" id="seconds">00</span>
+        <span class="label">Saniye</span>
+      </div>
+
+      <span class="divider">:</span>
+
+      <!-- SALİSE -->
+      <div class="time-unit">
+        <span class="number" id="salise">00</span>
+        <span class="label">Salise</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Arka Plan Müzik Çalıcıları (Sayo-nara) -->
+  <!-- Çevrimdışı kullanım için yerel dosya önceliği -->
+  <audio id="local-audio" loop preload="auto">
+    <source src="sayo-nara.mp3" type="audio/mpeg">
+  </audio>
+
+  <!-- YouTube Embed (Online kesintisiz Sayo-nara akışı) -->
+  <iframe id="yt-stream" class="audio-host" allow="autoplay" src=""></iframe>
+
+  <div id="sound-control" title="Sesi Aç/Kapat">♪ MUTE / UNMUTE</div>
+
+  <script>
+    const startScreen = document.getElementById('start-screen');
+    const countdownScreen = document.getElementById('countdown-screen');
+    const triggerBtn = document.getElementById('trigger-btn');
+    const soundControl = document.getElementById('sound-control');
+
+    const elHours = document.getElementById('hours');
+    const elMinutes = document.getElementById('minutes');
+    const elSeconds = document.getElementById('seconds');
+    const elSalise = document.getElementById('salise');
+
+    const localAudio = document.getElementById('local-audio');
+    const ytStream = document.getElementById('yt-stream');
+
+    // Hedef: 20 Ekim saat 00:00:00 (JavaScript'te ay indeksi 0'dan başlar: 9 = Ekim)
+    function getNextTarget() {
+      const now = new Date();
+      let targetYear = now.getFullYear();
+      let targetDate = new Date(targetYear, 9, 20, 0, 0, 0, 0);
+
+      // Eğer bu yılın 20 Ekim 00:00'ı geçtiyse sonraki yılın 20 Ekim'ini hedefler
+      if (now.getTime() >= targetDate.getTime()) {
+        targetDate = new Date(targetYear + 1, 9, 20, 0, 0, 0, 0);
+      }
+      return targetDate;
+    }
+
+    const targetTimestamp = getNextTarget().getTime();
+
+    // Sayo-nara Müziğini Başlat
+    function playSayoNara() {
+      let playedLocal = false;
+
+      // Önce yerel sayo-nara.mp3 varsa onu dener
+      localAudio.play().then(() => {
+        playedLocal = true;
+      }).catch(() => {
+        // Yerel dosya yoksa YouTube üzerinden orijinal parçayı çalar
+        if (!playedLocal) {
+          ytStream.src = "https://www.youtube-nocookie.com/embed/al1BNB8bKaE?autoplay=1&loop=1&playlist=al1BNB8bKaE&controls=0&enablejsapi=1";
+        }
+      });
+
+      soundControl.style.display = 'block';
+    }
+
+    // Butona tıklandığında gerçekleşen geçiş
+    triggerBtn.addEventListener('click', () => {
+      document.body.classList.add('glitch-flash');
+      
+      // Müziği tetikle
+      playSayoNara();
+
+      // Başlangıç ekranını soldur ve gizle
+      startScreen.style.opacity = '0';
+      startScreen.style.transform = 'scale(0.85)';
+
+      setTimeout(() => {
+        startScreen.style.display = 'none';
+        countdownScreen.style.display = 'flex';
+
+        // Geri sayımı yumuşakça öne çıkar
+        requestAnimationFrame(() => {
+          countdownScreen.style.opacity = '1';
+        });
+
+        // 60fps akıcı geri sayım döngüsünü başlat
+        requestAnimationFrame(updateCountdown);
+      }, 700);
+
+      setTimeout(() => {
+        document.body.classList.remove('glitch-flash');
+      }, 400);
+    });
+
+    // Zamanlayıcı Döngüsü (Saat, Dakika, Saniye, Salise)
+    function updateCountdown() {
+      const now = Date.now();
+      const diff = targetTimestamp - now;
+
+      if (diff <= 0) {
+        elHours.textContent = "00";
+        elMinutes.textContent = "00";
+        elSeconds.textContent = "00";
+        elSalise.textContent = "00";
+        return;
+      }
+
+      // Toplam Saat hesabı (günleri de saat cinsinden içerir)
+      const totalHours = Math.floor(diff / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+      
+      // Salise hesabı (saniyenin yüzde biri: 00 - 99 arası)
+      const salise = Math.floor((diff % 1000) / 10);
+
+      elHours.textContent = String(totalHours).padStart(2, '0');
+      elMinutes.textContent = String(minutes).padStart(2, '0');
+      elSeconds.textContent = String(seconds).padStart(2, '0');
+      elSalise.textContent = String(salise).padStart(2, '0');
+
+      requestAnimationFrame(updateCountdown);
+    }
+
+    // Ses Aç / Kapa Kontrolü
+    let isMuted = false;
+    soundControl.addEventListener('click', () => {
+      isMuted = !isMuted;
+      if (isMuted) {
+        localAudio.muted = true;
+        ytStream.style.display = 'none';
+        ytStream.src = "";
+        soundControl.textContent = "♪ MUTED";
+      } else {
+        localAudio.muted = false;
+        playSayoNara();
+        soundControl.textContent = "♪ UNMUTED";
+      }
+    });
+  </script>
+</body>
+</html>
